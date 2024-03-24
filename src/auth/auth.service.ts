@@ -8,7 +8,7 @@ import * as bcypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { AuthDto } from './dto/auth.dto';
 import { Msg, Jwt } from './interfaces/auth.interface';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from 'prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -40,9 +40,19 @@ export class AuthService {
       throw error;
     }
   }
-  async login(dto: AuthDto): Promise<Jwt> {}
-  async generateJwt(userId: number, email: string) {
-    // これは何？
+  async login(dto: AuthDto): Promise<Jwt> {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email: dto.email,
+      },
+    });
+    if (!user) throw new ForbiddenException('Email or password incorrect');
+    const isValid = await bcypt.compare(dto.password, user.hashedPassword);
+    if (!isValid) throw new ForbiddenException('Email of password incorrect');
+    return this.generateJwt(user.id, user.email);
+  }
+  //   login関数でしようする。
+  async generateJwt(userId: number, email: string): Promise<Jwt> {
     const payload = {
       sub: userId,
       email,
@@ -53,7 +63,7 @@ export class AuthService {
       secret: secret,
     });
     return {
-      accessToke: token,
+      accessToken: token,
     };
   }
 }
